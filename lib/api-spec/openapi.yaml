@@ -3,20 +3,35 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Narrative Simulation Engine API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: world
+    description: World Engine — state, time, locations
+  - name: npcs
+    description: NPC Engine — characters, routines, behavior
+  - name: events
+    description: Event Engine — world events timeline
+  - name: memory
+    description: Memory Engine — persistent memories and knowledge
+  - name: narrative
+    description: Narrative Engine — player actions and story responses
+  - name: relationships
+    description: Relationship Engine — NPC relations with player
+  - name: saves
+    description: Save/Load system
+  - name: settings
+    description: Game settings
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +39,942 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── WORLD ENGINE ────────────────────────────────────────────────────────────
+
+  /world/state:
+    get:
+      operationId: getWorldState
+      tags: [world]
+      summary: Get current world state
+      description: Returns the full current state of the world (time, weather, location, mode)
+      responses:
+        "200":
+          description: Current world state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldState"
+
+  /world/tick:
+    post:
+      operationId: tickWorld
+      tags: [world]
+      summary: Advance world time
+      description: Moves time forward, triggers NPC routines and autonomous events
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorldTickInput"
+      responses:
+        "200":
+          description: Updated world state after tick
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldTickResult"
+
+  /world/summary:
+    get:
+      operationId: getWorldSummary
+      tags: [world]
+      summary: Get world overview
+      description: Dashboard summary with active events, present NPCs, recent memories
+      responses:
+        "200":
+          description: World summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldSummary"
+
+  /world/locations:
+    get:
+      operationId: listLocations
+      tags: [world]
+      summary: List all locations
+      responses:
+        "200":
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Location"
+
+  /world/locations/{locationId}:
+    get:
+      operationId: getLocation
+      tags: [world]
+      summary: Get a location with present NPCs
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Location details with present NPCs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationDetail"
+        "404":
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── NPC ENGINE ──────────────────────────────────────────────────────────────
+
+  /npcs:
+    get:
+      operationId: listNpcs
+      tags: [npcs]
+      summary: List all NPCs
+      description: Returns all NPCs with their current location and basic status
+      responses:
+        "200":
+          description: List of NPCs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NpcSummary"
+
+  /npcs/{npcId}:
+    get:
+      operationId: getNpc
+      tags: [npcs]
+      summary: Get NPC details
+      description: Full NPC profile including personality, objectives, current state
+      parameters:
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: NPC details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NpcDetail"
+        "404":
+          description: NPC not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /npcs/{npcId}/memory:
+    get:
+      operationId: getNpcMemory
+      tags: [npcs]
+      summary: Get what an NPC knows
+      description: Returns all memories and knowledge entries of a specific NPC
+      parameters:
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: NPC memory entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryEntry"
+        "404":
+          description: NPC not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /npcs/{npcId}/relationships:
+    get:
+      operationId: getNpcRelationships
+      tags: [npcs]
+      summary: Get an NPC's relationships
+      description: Returns all relationships this NPC has (with player and other NPCs)
+      parameters:
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: NPC relationships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Relationship"
+        "404":
+          description: NPC not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── EVENT ENGINE ────────────────────────────────────────────────────────────
+
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List world events
+      description: Paginated list of all world events, most recent first
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: number
+            default: 0
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPage"
+
+  /events/active:
+    get:
+      operationId: listActiveEvents
+      tags: [events]
+      summary: List currently active events
+      description: Returns only open/ongoing events
+      responses:
+        "200":
+          description: Active events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorldEvent"
+
+  # ─── MEMORY ENGINE ───────────────────────────────────────────────────────────
+
+  /memory:
+    get:
+      operationId: listMemories
+      tags: [memory]
+      summary: List world memory log
+      description: Returns the global memory timeline (player + world events)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 30
+        - name: subjectId
+          in: query
+          description: Filter by subject NPC id
+          schema:
+            type: ["number", "null"]
+      responses:
+        "200":
+          description: Memory entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryEntry"
+
+  # ─── NARRATIVE ENGINE ─────────────────────────────────────────────────────────
+
+  /narrative/action:
+    post:
+      operationId: performAction
+      tags: [narrative]
+      summary: Perform a player action
+      description: Sends player input to the engine, returns narrative response and world updates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerActionInput"
+      responses:
+        "200":
+          description: Narrative response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NarrativeResponse"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /narrative/history:
+    get:
+      operationId: getNarrativeHistory
+      tags: [narrative]
+      summary: Get narrative chat history
+      description: Returns the player's interaction history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 50
+      responses:
+        "200":
+          description: Narrative history entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NarrativeMessage"
+
+  # ─── RELATIONSHIP ENGINE ──────────────────────────────────────────────────────
+
+  /relationships:
+    get:
+      operationId: listRelationships
+      tags: [relationships]
+      summary: List all player relationships
+      description: Returns the player's relationship status with every NPC
+      responses:
+        "200":
+          description: Player relationships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Relationship"
+
+  /relationships/{npcId}:
+    get:
+      operationId: getRelationship
+      tags: [relationships]
+      summary: Get relationship with a specific NPC
+      parameters:
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Relationship details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relationship"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── SAVE / LOAD ─────────────────────────────────────────────────────────────
+
+  /saves:
+    get:
+      operationId: listSaves
+      tags: [saves]
+      summary: List all saves
+      responses:
+        "200":
+          description: List of saves
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SaveSlot"
+
+    post:
+      operationId: createSave
+      tags: [saves]
+      summary: Create a new save
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveInput"
+      responses:
+        "201":
+          description: Save created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveSlot"
+
+  /saves/{saveId}:
+    delete:
+      operationId: deleteSave
+      tags: [saves]
+      summary: Delete a save
+      parameters:
+        - name: saveId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Save deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /saves/{saveId}/load:
+    post:
+      operationId: loadSave
+      tags: [saves]
+      summary: Load a save
+      description: Restores the world state from a saved slot
+      parameters:
+        - name: saveId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: World state restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldState"
+        "404":
+          description: Save not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── SETTINGS ────────────────────────────────────────────────────────────────
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get game settings
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSettings"
+
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update game settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameSettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSettings"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    # ─── WORLD ────────────────────────────────────────────────────────────────
+
+    WorldState:
+      type: object
+      required: [id, worldDay, worldTime, weather, currentLocationId, currentLocationName, activeMode, isRunning, createdAt, updatedAt]
+      properties:
+        id:
+          type: number
+        worldDay:
+          type: number
+          description: Current in-game day number
+        worldTime:
+          type: string
+          description: Current in-game time (HH:MM)
+        weather:
+          type: string
+          description: Current weather condition
+        currentLocationId:
+          type: number
+        currentLocationName:
+          type: string
+        activeMode:
+          type: string
+          enum: [novel, rpg, advanced, auto]
+        isRunning:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorldTickInput:
+      type: object
+      properties:
+        minutesToAdvance:
+          type: number
+          default: 60
+          description: How many in-game minutes to advance
+
+    WorldTickResult:
+      type: object
+      required: [worldState, triggeredEvents, npcActions]
+      properties:
+        worldState:
+          $ref: "#/components/schemas/WorldState"
+        triggeredEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorldEvent"
+        npcActions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NpcAction"
+        narrativeSummary:
+          type: ["string", "null"]
+          description: Short narrative description of what happened during the tick
+
+    WorldSummary:
+      type: object
+      required: [worldState, presentNpcs, activeEvents, recentMemories, relationshipCount]
+      properties:
+        worldState:
+          $ref: "#/components/schemas/WorldState"
+        presentNpcs:
+          type: array
+          items:
+            $ref: "#/components/schemas/NpcSummary"
+        activeEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorldEvent"
+        recentMemories:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryEntry"
+        relationshipCount:
+          type: number
+
+    Location:
+      type: object
+      required: [id, name, description, type, isAccessible]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          description: indoor, outdoor, settlement, wilderness, etc.
+        isAccessible:
+          type: boolean
+        npcCount:
+          type: ["number", "null"]
+
+    LocationDetail:
+      type: object
+      required: [id, name, description, type, isAccessible, presentNpcs, recentEvents]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        isAccessible:
+          type: boolean
+        presentNpcs:
+          type: array
+          items:
+            $ref: "#/components/schemas/NpcSummary"
+        recentEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorldEvent"
+
+    # ─── NPC ──────────────────────────────────────────────────────────────────
+
+    NpcSummary:
+      type: object
+      required: [id, name, locationId, locationName, currentActivity, emotionalState]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        locationId:
+          type: number
+        locationName:
+          type: string
+        currentActivity:
+          type: string
+        emotionalState:
+          type: string
+        relationshipWithPlayer:
+          type: ["string", "null"]
+
+    NpcDetail:
+      type: object
+      required: [id, name, age, personality, objectives, currentRoutine, locationId, locationName, emotionalState, knownSecrets, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        age:
+          type: ["number", "null"]
+        personality:
+          type: string
+          description: Short description of NPC personality
+        background:
+          type: ["string", "null"]
+        objectives:
+          type: array
+          items:
+            type: string
+        currentRoutine:
+          type: string
+          description: What the NPC is currently doing
+        locationId:
+          type: number
+        locationName:
+          type: string
+        emotionalState:
+          type: string
+        knownSecrets:
+          type: array
+          items:
+            type: string
+          description: Secrets this NPC holds (visible only in advanced mode)
+        createdAt:
+          type: string
+          format: date-time
+
+    NpcAction:
+      type: object
+      required: [npcId, npcName, action, locationId, locationName]
+      properties:
+        npcId:
+          type: number
+        npcName:
+          type: string
+        action:
+          type: string
+        locationId:
+          type: number
+        locationName:
+          type: string
+        narrative:
+          type: ["string", "null"]
+
+    # ─── EVENTS ───────────────────────────────────────────────────────────────
+
+    WorldEvent:
+      type: object
+      required: [id, type, title, description, isActive, worldDay, worldTime, locationId, locationName, createdAt]
+      properties:
+        id:
+          type: number
+        type:
+          type: string
+          enum: [scheduled, random, plot, social, consequence, npc_action, player_action]
+        title:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+        worldDay:
+          type: number
+        worldTime:
+          type: string
+        locationId:
+          type: number
+        locationName:
+          type: string
+        involvedNpcIds:
+          type: array
+          items:
+            type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    EventPage:
+      type: object
+      required: [events, total, offset, limit]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorldEvent"
+        total:
+          type: number
+        offset:
+          type: number
+        limit:
+          type: number
+
+    # ─── MEMORY ───────────────────────────────────────────────────────────────
+
+    MemoryEntry:
+      type: object
+      required: [id, ownerId, ownerType, content, importance, worldDay, worldTime, isLongTerm, createdAt]
+      properties:
+        id:
+          type: number
+        ownerId:
+          type: number
+          description: Who owns this memory (NPC id or 0 for world/player)
+        ownerType:
+          type: string
+          enum: [player, npc, world]
+        subjectId:
+          type: ["number", "null"]
+          description: NPC this memory is about (if any)
+        subjectName:
+          type: ["string", "null"]
+        content:
+          type: string
+          description: What is remembered
+        importance:
+          type: string
+          enum: [low, medium, high, critical]
+        worldDay:
+          type: number
+        worldTime:
+          type: string
+        isLongTerm:
+          type: boolean
+          description: Long-term memory (persists) vs short-term (may fade)
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── NARRATIVE ────────────────────────────────────────────────────────────
+
+    PlayerActionInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: The player's action or dialogue input
+        targetNpcId:
+          type: ["number", "null"]
+          description: NPC this action is directed at (if any)
+
+    NarrativeResponse:
+      type: object
+      required: [narrative, worldStateChanged, newEvents, messageId, worldDay, worldTime]
+      properties:
+        narrative:
+          type: string
+          description: The narrative text response
+        worldStateChanged:
+          type: boolean
+        newEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorldEvent"
+        npcReactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NpcAction"
+        newMemories:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryEntry"
+        messageId:
+          type: number
+        worldDay:
+          type: number
+        worldTime:
+          type: string
+
+    NarrativeMessage:
+      type: object
+      required: [id, role, text, worldDay, worldTime, createdAt]
+      properties:
+        id:
+          type: number
+        role:
+          type: string
+          enum: [player, narrator]
+        text:
+          type: string
+        worldDay:
+          type: number
+        worldTime:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── RELATIONSHIPS ────────────────────────────────────────────────────────
+
+    Relationship:
+      type: object
+      required: [id, npcId, npcName, trust, respect, suspicion, friendship, rivalry, status, lastInteractionDay]
+      properties:
+        id:
+          type: number
+        npcId:
+          type: number
+        npcName:
+          type: string
+        trust:
+          type: number
+          minimum: -100
+          maximum: 100
+        respect:
+          type: number
+          minimum: -100
+          maximum: 100
+        suspicion:
+          type: number
+          minimum: -100
+          maximum: 100
+        friendship:
+          type: number
+          minimum: -100
+          maximum: 100
+        rivalry:
+          type: number
+          minimum: -100
+          maximum: 100
+        status:
+          type: string
+          description: Narrative label (stranger, acquaintance, ally, enemy, etc.)
+        lastInteractionDay:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    # ─── SAVES ────────────────────────────────────────────────────────────────
+
+    SaveSlot:
+      type: object
+      required: [id, name, worldDay, worldTime, locationName, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        worldDay:
+          type: number
+        worldTime:
+          type: string
+        locationName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SaveInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    # ─── SETTINGS ─────────────────────────────────────────────────────────────
+
+    GameSettings:
+      type: object
+      required: [id, activeMode, narrativeSpeed, autoTickEnabled, autoTickIntervalMinutes, language, updatedAt]
+      properties:
+        id:
+          type: number
+        activeMode:
+          type: string
+          enum: [novel, rpg, advanced, auto]
+        narrativeSpeed:
+          type: string
+          enum: [slow, normal, fast]
+        autoTickEnabled:
+          type: boolean
+        autoTickIntervalMinutes:
+          type: number
+        language:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    GameSettingsInput:
+      type: object
+      properties:
+        activeMode:
+          type: string
+          enum: [novel, rpg, advanced, auto]
+        narrativeSpeed:
+          type: string
+          enum: [slow, normal, fast]
+        autoTickEnabled:
+          type: boolean
+        autoTickIntervalMinutes:
+          type: number
+        language:
+          type: string
