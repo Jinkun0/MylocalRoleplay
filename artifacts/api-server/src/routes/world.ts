@@ -19,6 +19,7 @@ import {
   GetLocationResponse,
 } from "@workspace/api-zod";
 import { generateNpcTick, advanceWorldTime } from "../lib/world-engine";
+import { generateTickNarrative } from "../lib/llm-narrator";
 
 const router: IRouter = Router();
 
@@ -73,7 +74,7 @@ router.post("/world/tick", async (req, res): Promise<void> => {
   const allNpcs = await db.select().from(npcsTable);
   const npcActions = await generateNpcTick(allNpcs, newState, db);
 
-  const triggeredEvents: typeof eventsTable.$inferSelect[] = [];
+  const triggeredEvents: Array<typeof eventsTable.$inferSelect & { locationName: string }> = [];
   for (const action of npcActions) {
     if (action.narrative) {
       const [evt] = await db
@@ -88,7 +89,7 @@ router.post("/world/tick", async (req, res): Promise<void> => {
           involvedNpcIds: [action.npcId],
         })
         .returning();
-      triggeredEvents.push(evt);
+      triggeredEvents.push({ ...evt, locationName: action.locationName });
     }
   }
 
@@ -97,14 +98,15 @@ router.post("/world/tick", async (req, res): Promise<void> => {
     .from(locationsTable)
     .where(eq(locationsTable.id, newState.currentLocationId));
 
-  const summary =
-    npcActions.length > 0
-      ? npcActions
-          .filter((a) => a.narrative)
-          .slice(0, 3)
-          .map((a) => a.narrative)
-          .join(" ")
-      : "Il tempo scorre tranquillo. Il mondo respira.";
+  const summary = await generateTickNarrative({
+    day: newState.worldDay,
+    time: newState.worldTime,
+    weather: newState.weather,
+    locationName: loc?.name ?? "Unknown",
+    npcActions: npcActions
+      .filter((a) => a.narrative)
+      .map((a) => ({ npcName: a.npcName, action: a.action, locationName: a.locationName })),
+  });
 
   res.json(
     TickWorldResponse.parse({
