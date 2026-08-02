@@ -9,6 +9,7 @@ export type { CreateWorldOptions } from "./createNewWorld";
 export {
   createSnapshot,
   loadSnapshot,
+  createInMemoryDbAdapter,
   VersionMismatchError,
 } from "./saveLoad";
 export type { CreateSnapshotOptions, LoadSnapshotOptions } from "./saveLoad";

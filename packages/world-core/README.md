@@ -1,11 +1,11 @@
-# @workspace/world-core — V1 (Design & Types)
+# @workspace/world-core — V1 (Contratti + Runtime Minimo)
 
-Questo package contiene i contratti canonici e la documentazione per la Fase 0.5 (V1) del motore narrativo. 
+Questo package contiene i contratti canonici **e il runtime minimo** per la Fase 0.5 (V1) del motore narrativo.
 
 Scopo
 - Definire i tipi/contratti principali (WorldState, Entity, NPC, Event, Memory, Relationship, SaveSnapshot, ModuleManifest, TimeTick, LLMProvider).
 - Fornire un formato snapshot V1 e la strategia di versioning associata.
-- Esportare la specifica delle API minime del core (documentazione, non implementazione runtime).
+- Esportare le API runtime minime del core: `createNewWorld`, `createSnapshot`, `loadSnapshot`, `createInMemoryDbAdapter`.
 - Non contiene logica runtime per LLM, DB drivers, event bus, compression, sandboxing o replay.
 
 Principio fondamentale
@@ -13,6 +13,8 @@ Principio fondamentale
 
 Contenuto di questa cartella
 - `src/types/` — definizioni TypeScript (interfacce) dei contratti canonici.
+- `src/createNewWorld.ts` — factory `createNewWorld` e costanti di versione.
+- `src/saveLoad.ts` — `createSnapshot`, `loadSnapshot`, `VersionMismatchError`, `createInMemoryDbAdapter`.
 - `tests/` — test skeleton e casi minimi per: create new world, save snapshot, load snapshot con mismatch versione.
 
 Formato snapshot (esempio minimale)
@@ -47,7 +49,7 @@ API minime (descrittive)
 - initialize(options)
 - registerAdapter(type, adapter)
 - createNewWorld(meta, initialState?)
-- saveSnapshot(worldState, options?)
+- createSnapshot(worldState, options?)
 - loadSnapshot(snapshotId | snapshotObject, options?)
 - getEntity(worldState, entityId)
 - queryEntities(worldState, filter)
@@ -72,12 +74,11 @@ Regole di dipendenza (V1)
 Criteri di accettazione V1 (prima implementazione)
 - README + tipi TypeScript presenti sul branch feature/world-core-foundation
 - Test skeleton per i casi minimi (create, save, load-version-mismatch)
-- Nessuna logica runtime o adapter concreti aggiunti al core
+- Runtime minimo implementato: `createNewWorld`, `createSnapshot`, `loadSnapshot`, `createInMemoryDbAdapter`
+- Nessun adapter concreto per LLM, DB drivers o framework web aggiunto al core
 
 Prossimi passi suggeriti
 - Review del documento e delle interfacce TypeScript
 - Se approvato, procedere con la scrittura di schemi runtime (Zod) e implementazioni in-memory minimal per i metodi API richiesti
 
 ---
-
-(Questo file è generato su tua richiesta — non introduce nessuna modifica runtime.)
