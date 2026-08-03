@@ -128,18 +128,18 @@ router.post("/saves/:saveId/load", async (req, res): Promise<void> => {
   let restoredWorldTime: string;
 
   if (isSaveSnapshot(snapshotBlob)) {
-    // Modern path: deserialise via world-core, then map back to DB fields
+    // Modern path: deserialise via world-core, then map back to DB fields.
+    // A VersionMismatchError means the snapshot is modern but incompatible —
+    // fail explicitly rather than falling back to legacy behaviour.
     let worldState;
     try {
       worldState = loadSnapshot(snapshotBlob);
     } catch (err) {
       if (err instanceof VersionMismatchError) {
-        // Tolerate version mismatches during the transition period
-        logger.warn({ err }, "Version mismatch loading snapshot — proceeding with ignoreVersionMismatch");
-        worldState = loadSnapshot(snapshotBlob, { ignoreVersionMismatch: true });
-      } else {
-        throw err;
+        res.status(409).json({ error: err.message });
+        return;
       }
+      throw err;
     }
     const dbFields = worldStateToDbUpdate(worldState);
     restoredWorldDay = dbFields.worldDay ?? save.worldDay;
