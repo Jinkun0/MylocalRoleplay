@@ -1,8 +1,6 @@
 import type { WorldState } from "@workspace/world-core";
 import { CURRENT_SAVE_FORMAT_VERSION, WORLD_CORE_VERSION } from "@workspace/world-core";
-import type { worldStateTable } from "@workspace/db";
-
-type DbWorldStateRow = typeof worldStateTable.$inferSelect;
+import type { WorldState as DbWorldStateRow } from "@workspace/db";
 
 /**
  * Maps a `world_state` DB row to the canonical WorldState defined by world-core.
