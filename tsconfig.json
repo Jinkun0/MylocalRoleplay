@@ -4,6 +4,9 @@
   "files": [],
   "references": [
     {
+      "path": "./packages/world-core"
+    },
+    {
       "path": "./lib/db"
     },
     {

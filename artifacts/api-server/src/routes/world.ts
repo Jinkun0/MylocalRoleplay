@@ -18,8 +18,10 @@ import {
   GetLocationParams,
   GetLocationResponse,
 } from "@workspace/api-zod";
+import { createNewWorld } from "@workspace/world-core";
 import { generateNpcTick, advanceWorldTime } from "../lib/world-engine";
 import { generateTickNarrative } from "../lib/llm-narrator";
+import { worldStateToDbUpdate } from "../lib/worldStateMapper";
 
 const router: IRouter = Router();
 
@@ -27,13 +29,14 @@ const router: IRouter = Router();
 router.get("/world/state", async (req, res): Promise<void> => {
   let [state] = await db.select().from(worldStateTable).limit(1);
   if (!state) {
-    // Bootstrap world state on first access
+    // Bootstrap world state on first access using the canonical core factory
     const [loc] = await db.select().from(locationsTable).limit(1);
     const locationId = loc?.id ?? 1;
-    const locationName = loc?.name ?? "Unknown";
+    const ws = createNewWorld({ name: "MylocalRoleplay" });
+    const dbValues = { ...worldStateToDbUpdate(ws), currentLocationId: locationId };
     [state] = await db
       .insert(worldStateTable)
-      .values({ currentLocationId: locationId })
+      .values(dbValues)
       .returning();
   }
   const [loc] = await db
@@ -58,9 +61,11 @@ router.post("/world/tick", async (req, res): Promise<void> => {
   let [state] = await db.select().from(worldStateTable).limit(1);
   if (!state) {
     const [loc] = await db.select().from(locationsTable).limit(1);
+    const ws = createNewWorld({ name: "MylocalRoleplay" });
+    const dbValues = { ...worldStateToDbUpdate(ws), currentLocationId: loc?.id ?? 1 };
     [state] = await db
       .insert(worldStateTable)
-      .values({ currentLocationId: loc?.id ?? 1 })
+      .values(dbValues)
       .returning();
   }
 
