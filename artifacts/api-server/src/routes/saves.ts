@@ -176,7 +176,11 @@ router.post("/saves/:saveId/load", async (req, res): Promise<void> => {
   } else {
     [restored] = await db
       .insert(worldStateTable)
-      .values({ worldDay: restoredWorldDay, worldTime: restoredWorldTime })
+      .values({
+        worldDay: restoredWorldDay,
+        worldTime: restoredWorldTime,
+        currentLocationId: restoredLocationId,
+      })
       .returning();
   }
 

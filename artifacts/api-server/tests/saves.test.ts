@@ -215,11 +215,12 @@ describe("POST /saves", () => {
     const mappedState = { meta: { worldId: "w1" }, globals: {}, entities: {} };
     mockDbRowToWorldState.mockReturnValue(mappedState);
     mockCreateSnapshot.mockReturnValue(mockSaveSnapshot);
+    const valuesSpy = vi.fn(() => makeChain([mockCreatedSave]));
 
     mockDb.select
       .mockReturnValueOnce(makeChain([mockDbState])) // worldState query
       .mockReturnValueOnce(makeChain([mockLocation])); // location query
-    mockDb.insert.mockReturnValue(makeChain([mockCreatedSave]));
+    mockDb.insert.mockReturnValue({ values: valuesSpy });
 
     const res = await fetch(`${baseUrl}/saves`, {
       method: "POST",
@@ -229,9 +230,11 @@ describe("POST /saves", () => {
 
     expect(res.status).toBe(201);
     expect(mockCreateSnapshot).toHaveBeenCalledOnce();
-    // The snapshot passed to db.insert must include snapshotMeta
-    const insertValues = mockDb.insert.mock.calls[0];
-    expect(insertValues).toBeDefined();
+    expect(valuesSpy).toHaveBeenCalledWith(expect.objectContaining({
+      snapshot: expect.objectContaining({
+        snapshotMeta: mockSaveSnapshot.snapshotMeta,
+      }),
+    }));
   });
 });
 
